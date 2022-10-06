@@ -1,0 +1,14 @@
+{
+  "name": "@viasat/resolve-deps",
+  "version": "0.0.1",
+  "repository": "https://github.com/viasat/resolve-deps",
+  "license": "Copyright 2022 Viasat, Inc. All Rights Reserved",
+  "description": "ClojureScript and python dependency resolver",
+  "dependencies": {
+    "nbb": "^0.7.132",
+    "neodoc": "^2.0.2"
+  },
+  "devDependencies": {
+    "shadow-cljs": "2.20.2"
+  }
+}
