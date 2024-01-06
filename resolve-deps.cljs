@@ -32,14 +32,12 @@
           path-dirs (P/->> (fs/readdir path #js {:withFileTypes true})
                            (filter #(.isDirectory %))
                            (map #(.-name %)))
-          raw-deps (P/all (for [dname path-dirs
+          dep-list (P/all (for [dname path-dirs
                                 :let [dpath (path/join path dname "deps")]]
                             (P/catch (P/->> (fs/readFile dpath "utf8")
+                                            parse-dep-str
                                             (vector dname))
-                              #(identity nil))))
-          dep-list (for [[dname dep-str] raw-deps
-                         :when dname]
-                     [dname (parse-dep-str dep-str)])]
+                              #(vector dname nil))))]
     (into {} dep-list)))
 
 ;; First argument is path to deps directory and the rest are dep

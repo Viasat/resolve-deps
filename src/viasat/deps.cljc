@@ -72,16 +72,17 @@
     (-> (get counts smallest) first next)))
 
 (defn resolve-dep-order
-  "Takes a starting dependency spec(s), find shortest dependency
-  resolution, and returns it in the order that the deps need to be
-  applied (reversed topological sort order)."
+  "Takes a dependency graph and a starting node, find shortest
+  dependency resolution, and returns it in the order that the deps
+  need to be applied (reversed topological sort order)."
   [graph start]
   (let [deps (set (drop 1 (min-alt-set-cover graph start)))
-        dep-graph (into {} (for [[k vs] graph
-                                 :when (deps k)]
-                             [k (set (mapcat #(if (coll? %)
-                                                (keep deps %)
-                                                [%]) vs))]))
+        dep-graph (into (zipmap deps (repeat #{})) ;; nodes with no deps
+                        (for [[k vs] graph
+                              :when (deps k)]
+                          [k (set (mapcat #(if (coll? %)
+                                             (keep deps %)
+                                             [%]) vs))]))
         sorted (reverse (kahn-sort dep-graph))]
     sorted))
 
