@@ -83,8 +83,9 @@
                           [k (set (mapcat #(if (coll? %)
                                              (keep deps %)
                                              [%]) vs))]))
-        sorted (reverse (kahn-sort dep-graph))]
-    sorted))
+        sorted (kahn-sort dep-graph)]
+    (when (empty? sorted) (throw (ex-info "Graph contains a cycle" {})))
+    (reverse sorted)))
 
 
 (comment
