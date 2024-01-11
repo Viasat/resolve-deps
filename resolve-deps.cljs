@@ -48,5 +48,5 @@
         file-graph (load-dep-file-graph path)
         dep-graph (assoc file-graph :START (parse-dep-str start-dep-str))
         deps (resolve-dep-order dep-graph :START)]
-    (println (S/join " " deps)))
+    (println (S/join " " (filter #(not= :START %) deps))))
 

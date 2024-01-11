@@ -76,7 +76,7 @@
   dependency resolution, and returns it in the order that the deps
   need to be applied (reversed topological sort order)."
   [graph start]
-  (let [deps (set (drop 1 (min-alt-set-cover graph start)))
+  (let [deps (set (min-alt-set-cover graph start))
         dep-graph (into (zipmap deps (repeat #{})) ;; nodes with no deps
                         (for [[k vs] graph
                               :when (deps k)]
@@ -88,50 +88,45 @@
     (reverse sorted)))
 
 
-(comment
+(defn run-examples []
+  (let [graph0 {:a [:b :c]
+                :b [:c :d]
+                :c [:e]
+                :e [:f]}]
+    (prn :results0 (min-alt-set-cover graph0 :a))
+    (prn :results0.1 (resolve-dep-order graph0 :a)))
 
-(def graph0
-  {:A [:B :C]
-   :B [:C :D]
-   :C [:E]
-   :E [:F]})
+  (let [graph1 {:A [:B [:C :D]]  ; A requires B AND (C OR D)
+                :B [:E :F]       ; B requires E AND F
+                :C [:G]          ; C requires G
+                :D [:G :H]       ; D requires G AND H
+                :E []            ; E has no deps
+                :F []            ; F has no deps
+                :G []            ; G has no deps
+                :H []}]          ; H has no deps
+    (prn :result1 (min-alt-set-cover graph1 :A))
+    (prn :result1.1 (resolve-dep-order graph1 :A)))
 
-(prn :results0 (min-alt-set-cover graph0 :A))
+  (let [graph2 {:A     [:B :C]
+                :B     [[:C :D]]
+                :C     [:E]
+                :D     [:E]}]
+    (prn :result2 (min-alt-set-cover graph2 :A))
+    (prn :result2.1 (resolve-dep-order graph2 :A)))
 
-(def graph1
-  {:A [:B [:C :D]]  ; A requires B AND (C OR D)
-   :B [:E :F]       ; B requires E AND F
-   :C [:G]          ; C requires G
-   :D [:G :H]       ; D requires G AND H
-   :E []            ; E has no deps
-   :F []            ; F has no deps
-   :G []            ; G has no deps
-   :H []})          ; H has no deps
+  (let [graph3 {:accel [:base [:mach3 :ab]]
+                :mach3 [:base]
+                :ab    [:base]}]
+    (prn :result3.1 (min-alt-set-cover graph3 [:accel :ab]))
+    (prn :result3.1.1 (resolve-dep-order graph3 [:accel :ab]))
+    (prn :result3.2 (min-alt-set-cover graph3 [:accel :mach3]))
+    (prn :result3.2.1 (resolve-dep-order graph3 [:accel :mach3])))
 
-(prn :result1 (min-alt-set-cover graph1 :A))
-
-(def graph2
-  {:A     [:B :C]
-   :B     [[:C :D]]
-   :C     [:E]
-   :D     [:E]})
-
-(prn :result2 (min-alt-set-cover graph2 :A))
-
-(def graph3
-  {:accel [:base [:mach3 :ab]]
-   :mach3 [:base]
-   :ab    [:base]})
-
-(prn :result3.1 (min-alt-set-cover graph3 [:accel :ab]))
-(prn :result3.2 (min-alt-set-cover graph3 [:accel :mach3]))
-
-(def graph4
-  {:A     [:B :C]
-   :B     [[:D :C]]})
-
-(prn :result4-all (alt-set-covers graph4 :A))
-(prn :result4-min (min-alt-set-cover graph4 :A))
-
+  (let [graph4 {:A     [:B :C]
+                :B     [[:D :C]]}]
+    (prn :result4-all (alt-set-covers graph4 :A))
+    (prn :result4-min (min-alt-set-cover graph4 :A))
+    (prn :result4-min.1 (resolve-dep-order graph4 :A)))
 )
 
+#_(run-examples)
