@@ -7,8 +7,9 @@ import os
 import re
 import sys
 
-def parse_dep_str(s):
+def parse_dep_str(raw_str):
     """Parse a dependency string into a sequence of dependencies."""
+    s = re.sub(r'#[^\n]*', " ", raw_str)
     if not s:
         return []
 
