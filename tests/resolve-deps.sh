@@ -28,4 +28,12 @@ test_rd "e c z" "a b c z e" "a b c e z" "a z b c e" "a b z c e"  # include no de
 
 test_rd "cyc1"  ""              # should error and return empty
 
+test_rd "o1"    "o1"            # order/weak dep on o3 should be ignored
+test_rd "o1 o2" "o1 o2" "o2 o1" # no ordering
+test_rd "o2 o1" "o1 o2" "o2 o1" # no ordering
+test_rd "o4"    "o4"            # order/weak dep on o5 should be ignored
+test_rd "o3"    "o5 o4 o3"      # mix of ordering types
+test_rd "o2 o3" "o5 o4 o3 o2"   # mix of ordering types
+test_rd "o1 o3" "o5 o4 o3 o1"   # mix of ordering types
+
 [ "${fails}" -eq 0 ]

@@ -79,16 +79,17 @@ def min_alt_set_cover(graph, start):
 
 def resolve_dep_order(graph, start):
     """Finds the shortest dependency resolution order."""
+    strong_graph = {k: [v for v in vs if not isinstance(v, dict)] for k,vs in graph.items()}
+    order_graph =  {k: [v["after"] if isinstance(v, dict) else v for v in vs] for k,vs in graph.items()}
     # Find the shortest set cover of dependencies
-    min_cover = set(min_alt_set_cover(graph, start))
+    min_cover = set(min_alt_set_cover(strong_graph, start))
 
     # Construct a new graph where each node points to its dependencies
     dep_graph = {dep: set() for dep in min_cover}  # Nodes with no dependencies
-    for k, vs in graph.items():
+    for k, vs in order_graph.items():
         if k in min_cover:
             # Flatten lists and keep only those in min_cover
             dep_graph[k] = set(v for v in vs for v in (v if isinstance(v, list) else [v]) if v in min_cover)
-
 
     # Perform topological sort on the new graph
     sorted_deps = kahn_sort(dep_graph)

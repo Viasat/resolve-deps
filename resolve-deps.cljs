@@ -13,15 +13,17 @@
   "Parse a dependency string of whitespace separated dep strings into
   a sequence of deps. Alternation deps are specified as two or more
   dependencies delimited by a '|' and are returned as a sequences of
-  the alternatives."
+  the alternatives. Order only (weak) deps are prefixed with a '+' and
+  are returned as a map {:after DEP}."
   [raw-str]
   (let [s (S/replace raw-str #"#[^\n]*" " ")]
     (if (empty? s)
       []
       (for [dep (S/split s #"[, \n]+")]
-        (if (re-seq #"[|]" dep)
-          (S/split dep #"[|]")
-          dep)))))
+        (cond
+          (re-seq #"[|]" dep) (S/split dep #"[|]")
+          (re-seq #"^\+" dep) {:after (S/replace dep #"^\+" "")}
+          :else               dep)))))
 
 (defn load-dep-file-graph
   "Takes path (a directory path) and dep-file-name (defaults to

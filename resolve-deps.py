@@ -7,14 +7,18 @@ import os
 import re
 import sys
 
+def parse_one_dep(dep):
+    if '|' in dep:      return dep.split('|')
+    elif dep[0] == '+': return {"after": dep[1:]}
+    else:               return dep
+
 def parse_dep_str(raw_str):
     """Parse a dependency string into a sequence of dependencies."""
     s = re.sub(r'#[^\n]*', " ", raw_str)
     if not s:
         return []
 
-    return [dep.split('|') if '|' in dep else dep
-            for dep in re.split(r'[, \n]+', s) if dep]
+    return [parse_one_dep(dep) for dep in re.split(r'[, \n]+', s) if dep]
 
 
 def load_dep_file_graph(path, dep_file_name="deps"):
