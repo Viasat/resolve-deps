@@ -13,7 +13,11 @@ def parse_one_dep(dep):
     else:               return dep
 
 def parse_dep_str(raw_str):
-    """Parse a dependency string into a sequence of dependencies."""
+    """Parse a dependency string of whitespace separated dep strings into
+    a sequence of deps. Alternation deps are specified as two or more
+    dependencies delimited by a '|' and are returned as a sequences of
+    the alternatives. Order only (weak) deps are prefixed with a '+' and
+    are returned as a map {:after DEP}."""
     s = re.sub(r'#[^\n]*', " ", raw_str)
     if not s:
         return []
@@ -22,7 +26,10 @@ def parse_dep_str(raw_str):
 
 
 def load_dep_file_graph(path, dep_file_name="deps"):
-    """Load dependency files from a directory and return a dependency graph."""
+    """Takes path (a directory path) and dep-file-name (defaults to
+    'deps') and finds all files matching path/*/dep-file-name. Returns
+    a map of directory names to parsed dependencies from the dep file
+    in that directory."""
     dep_graph = {}
     for dname in os.listdir(path):
         dpath = os.path.join(path, dname, dep_file_name)

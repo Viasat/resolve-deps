@@ -14,10 +14,9 @@ def normalize(g):
     return {node: g.get(node, set()) for node in all_nodes}
 
 def kahn_sort(g):
-    """
-    Perform a topological sort on a directed graph using Kahn's algorithm.
-    If the graph is cyclic, returns None.
-    """
+    """Return a topological sort for directed graph g using Kahn's
+    algorithm, where g is a map of nodes to sets of nodes. If g is
+    cyclic, returns nil."""
     g = normalize(g)
     l = []
     s = no_incoming(g)
@@ -36,7 +35,11 @@ def kahn_sort(g):
         return l
 
 def alt_set_covers(graph, result=None, visited=None, pending=None):
-    """Find all set covers of a graph containing alternation nodes."""
+    """Return all set covers of a graph containing alternation nodes.
+    Alternation nodes are expressed as a list of alternate nodes. Each
+    alternative dependency node in the graph effectively duplicates
+    the paths up to that point and continues the paths for each
+    alternative."""
     if result is None:
         result = []
     if visited is None:
@@ -67,7 +70,8 @@ def alt_set_covers(graph, result=None, visited=None, pending=None):
         return alt_set_covers(graph, new_result, new_visited, pending_rest + children)
 
 def min_alt_set_cover(graph, start):
-    """Find the minimum alternative set cover."""
+    """Call alt_set_covers and then return shortest path (if a tie
+    then return the first)."""
     if isinstance(start, list):
         graph = {**graph, ':-BEGIN-': start}
     else:
@@ -78,7 +82,9 @@ def min_alt_set_cover(graph, start):
     return shortest_cover[1:]  # Exclude ':-BEGIN-' node
 
 def resolve_dep_order(graph, start):
-    """Finds the shortest dependency resolution order."""
+    """Takes a dependency graph and a starting node, find shortest
+    dependency resolution, and returns it in the order that the deps
+    need to be applied (reversed topological sort order)."""
     strong_graph = {k: [v for v in vs if not isinstance(v, dict)] for k,vs in graph.items()}
     order_graph =  {k: [v["after"] if isinstance(v, dict) else v for v in vs] for k,vs in graph.items()}
     # Find the shortest set cover of dependencies
