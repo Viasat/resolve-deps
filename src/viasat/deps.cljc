@@ -34,9 +34,10 @@
 
 (defn alt-set-covers
   "Return all the set covers of a graph containing alternation nodes.
-  Each alternative dependency node in the graph effectively duplicates
-  the paths up to that point and continues the paths for each
-  alternative."
+  Alternation nodes are expressed as a collection (coll?) of alternate
+  nodes. Each alternative dependency node in the graph effectively
+  duplicates the paths up to that point and continues the paths for
+  each alternative."
   ([graph start] (alt-set-covers graph [] #{} [start]))
   ([graph result visited pending]
    (loop [result result  visited visited  pending pending]
@@ -76,13 +77,15 @@
   dependency resolution, and returns it in the order that the deps
   need to be applied (reversed topological sort order)."
   [graph start]
-  (let [deps (set (min-alt-set-cover graph start))
-        dep-graph (into (zipmap deps (repeat #{})) ;; nodes with no deps
-                        (for [[k vs] graph
-                              :when (deps k)]
-                          [k (set (mapcat #(if (coll? %)
-                                             (keep deps %)
-                                             [%]) vs))]))
+  (let [strong-graph (into {} (for [[k v] graph]
+                                [k (filter #(not (map? %)) v)]))
+        order-graph (into {} (for [[k v] graph]
+                               [k (map #(if (map? %) (:after %) %) v)]))
+        min-cover (set (min-alt-set-cover strong-graph start))
+        dep-graph (into (zipmap min-cover (repeat #{})) ;; nodes with no deps
+                        (for [[k vs] order-graph
+                              :when (min-cover k)]
+                          [k (set (keep min-cover (flatten vs)))]))
         sorted (kahn-sort dep-graph)]
     (when (empty? sorted) (throw (ex-info "Graph contains a cycle" {})))
     (reverse sorted)))
