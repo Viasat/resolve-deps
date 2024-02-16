@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) 2024, Viasat, Inc
+# Licensed under EPL 2.0
+
 # Ported from src/viasat/deps.cljc
 
 def no_incoming(g):

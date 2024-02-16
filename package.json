@@ -2,7 +2,7 @@
   "name": "@viasat/resolve-deps",
   "version": "0.0.1",
   "repository": "https://github.com/viasat/resolve-deps",
-  "license": "Copyright 2024 Viasat, Inc. All Rights Reserved",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "ClojureScript and python dependency resolver",
   "dependencies": {
     "nbb": "^0.7.132",

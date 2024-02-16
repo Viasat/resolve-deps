@@ -1,5 +1,8 @@
 #!/usr/bin/env nbb
 
+;; Copyright (c) 2024, Viasat, Inc
+;; Licensed under EPL 2.0
+
 (ns resolve-deps
   (:require [promesa.core :as P]
             [clojure.string :as S]

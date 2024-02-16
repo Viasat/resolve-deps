@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) 2024, Viasat, Inc
+# Licensed under EPL 2.0
+
 # Ported from resolve-deps.cljs
 
 from viasat.deps import resolve_dep_order
