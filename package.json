@@ -1,6 +1,6 @@
 {
-  "name": "@viasat/resolve-deps",
-  "version": "0.0.1",
+  "name": "@lonocloud/resolve-deps",
+  "version": "0.0.2",
   "repository": "https://github.com/viasat/resolve-deps",
   "license": "SEE LICENSE IN LICENSE",
   "description": "ClojureScript and python dependency resolver",
