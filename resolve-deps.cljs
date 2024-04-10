@@ -6,9 +6,26 @@
 (ns resolve-deps
   (:require [promesa.core :as P]
             [clojure.string :as S]
+            [cljs.pprint :refer [pprint]]
             [viasat.deps :refer [resolve-dep-order]]
+            ["neodoc" :as neodoc]
             ["path" :as path]
             ["fs/promises" :as fs]))
+
+(def usage "Usage:
+    resolve-deps [options] <dep-str>...
+
+Options:
+     -p PATH, --path=PATH    Colon separated dep dir paths
+                             [default: ./] [env: RESOLVE_DEPS_PATH]
+     --format=FORMAT         Output format (nodes, paths, json)
+                             [default: nodes] [env: RESOLVE_DEPS_FORMAT]")
+
+(defn parse-args [argv]
+  (-> (neodoc/run usage (clj->js {:smartOptions true
+                                  :optionsFirst true
+                                  :argv argv}))
+      js->clj))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -28,31 +45,69 @@
           (re-seq #"^\+" dep) {:after (S/replace dep #"^\+" "")}
           :else               dep)))))
 
-(defn load-dep-file-graph
-  "Takes path (a directory path) and dep-file-name (defaults to
-  'deps') and finds all files matching path/*/dep-file-name. Returns
-  a map of directory names to parsed dependencies from the dep file in
-  that directory."
-  [path & [dep-file-name]]
-  (P/let [dep-file-name (or dep-file-name "deps")
-          path-dirs (P/->> (fs/readdir path #js {:withFileTypes true})
-                           (filter #(.isDirectory %))
-                           (map #(.-name %)))
-          dep-list (P/all (for [dname path-dirs
-                                :let [dpath (path/join path dname "deps")]]
-                            (P/catch (P/->> (fs/readFile dpath "utf8")
-                                            parse-dep-str
-                                            (vector dname))
-                              #(vector dname nil))))]
-    (into {} dep-list)))
+(defn load-deps
+  "Takes a paths sequence and finds all files matching
+  path/*/deps-file. Returns a map of dep nodes to node data. Each node
+  data map contains:
+    - node: name of the node
+    - path: path to dep directory
+    - dep-str: raw dependency string from path/*/deps-file (if it exists)
+    - deps: parsed dependency string"
+  [paths & [deps-file]]
+  (P/let [deps-file (or deps-file "deps")
+          deps (P/->>
+                 (for [dir paths]
+                   (P/->> (fs/readdir dir #js {:withFileTypes true})
+                          (filter #(.isDirectory %))
+                          (map #(P/let [node (.-name %)
+                                        path (path/join dir node)
+                                        df (path/join path deps-file)
+                                        ds (P/catch (fs/readFile df "utf8")
+                                             (fn [] ""))]
+                                  {:node    node
+                                   :path    path
+                                   :dep-str ds
+                                   :deps    (parse-dep-str ds)}))
+                          P/all))
+                 P/all
+                 (mapcat identity))
+          errs (for [[n cnt] (frequencies (map :node deps))
+                     :when (> cnt 1)]
+                 (str "Node " n " appears in multiple places: "
+                      (S/join
+                        ", " (map :path (filter #(= n (:node %)) deps)))))]
+    (when (seq errs)
+      (throw (ex-info (S/join "; " errs) {})))
+    (zipmap (map :node deps) deps)))
 
-;; First argument is path to deps directory and the rest are dep
-;; strings. Load all dep definitions under path and then return the
-;; best resolution and order that fulfills the dep strings.
-(P/let [[path & start-dep-strs] *command-line-args*
-        start-dep-str (S/join "," start-dep-strs)
-        file-graph (load-dep-file-graph path)
-        dep-graph (assoc file-graph :START (parse-dep-str start-dep-str))
-        deps (resolve-dep-order dep-graph :START)]
-    (println (S/join " " (filter #(not= :START %) deps))))
+(defn print-deps
+  "Print nodes using data from deps (in format)"
+  [format nodes deps]
+  (condp = format
+    "nodes" (println (S/join " " nodes))
+    "paths" (println (S/join "\n" (for [n nodes]
+                                    (str n "=" (get-in deps [n :path])))))
+    "json" (println (js/JSON.stringify
+                      (clj->js (for [n nodes]
+                                 (get deps n {:node n :deps []})))))))
 
+(defn main
+  "Load node directory deps files found under path (--path) and then
+  print the best resolution and order that fulfills the <dep-str>
+  strings. Output format is selected by --format."
+  [argv]
+  (P/catch
+    (P/let [opts (parse-args argv)
+            start-dep-str (S/join "," (get opts "<dep-str>"))
+            deps (load-deps (S/split (get opts "--path") #":"))
+            dep-graph (assoc (zipmap (keys deps) (map :deps (vals deps)))
+                             :START (parse-dep-str start-dep-str))
+            res-deps (->> (resolve-dep-order dep-graph :START)
+                          (filter #(not= :START %)))]
+      (print-deps (get opts "--format") res-deps deps))
+    (fn [err]
+      (binding [*print-fn* *print-err-fn*]
+        (println "Error:" (or (.-message err) err)))
+      (js/process.exit 1))))
+
+(main *command-line-args*)
