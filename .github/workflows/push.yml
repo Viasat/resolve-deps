@@ -1,0 +1,25 @@
+name: Push (tests/resolve-deps.sh)
+
+on:
+  push: {}
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch: {}
+
+jobs:
+  compose-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: npm install
+        run: npm install
+
+      - name: ClojureScript (./tests/resolve-deps.sh ./resolve-deps)
+        timeout-minutes: 1
+        run: time ./tests/resolve-deps.sh ./resolve-deps
+
+      - name: Python (./tests/resolve-deps.sh ./resolve-deps.py)
+        timeout-minutes: 1
+        run: time ./tests/resolve-deps.sh ./resolve-deps.py
