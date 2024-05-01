@@ -5,6 +5,10 @@
 
 # Ported from src/viasat/deps.cljc
 
+############################################################
+## Kahn topology sort algorithm
+## Based on: https://gist.github.com/alandipert/1263783
+
 def no_incoming(g):
     """Find nodes in the graph with no incoming edges."""
     all_nodes = set(g.keys())
@@ -36,6 +40,9 @@ def kahn_sort(g):
         return None  # Graph has at least one cycle
     else:
         return l
+
+############################################################
+## Graph dep resolution using modified set cover algorithm
 
 def alt_set_covers(graph, result=None, visited=None, pending=None):
     """Return all set covers of a graph containing alternation nodes.
@@ -83,6 +90,8 @@ def min_alt_set_cover(graph, start):
     covers = alt_set_covers(graph, pending=[':-BEGIN-'])
     shortest_cover = min(covers, key=len)
     return shortest_cover[1:]  # Exclude ':-BEGIN-' node
+
+###
 
 def resolve_dep_order(graph, start):
     """Takes a dependency graph and a starting node, find shortest
