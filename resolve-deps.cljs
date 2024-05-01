@@ -17,7 +17,8 @@
     resolve-deps [options] <dep-str>...
 
 Options:
-     -p PATH, --path=PATH    Colon separated paths to dep dirs or files (JSON)
+     -p PATH, --path=PATH    One or more paths to dep dirs or files (JSON).
+                             Colon or comma separated.
                              [default: ./] [env: RESOLVE_DEPS_PATH]
      --format=FORMAT         Output format (nodes, paths, json)
                              [default: nodes] [env: RESOLVE_DEPS_FORMAT]")
@@ -133,7 +134,7 @@ Options:
   (P/catch
     (P/let [opts (parse-args argv)
             start-dep-str (S/join "," (get opts "<dep-str>"))
-            deps (load-deps-files (S/split (get opts "--path") #":"))
+            deps (load-deps-files (S/split (get opts "--path") #"[:,]"))
             dep-graph (assoc (zipmap (keys deps) (map :deps (vals deps)))
                              :START (parse-dep-str start-dep-str))
             res-deps (->> (resolve-dep-order dep-graph :START)
