@@ -1,4 +1,4 @@
-name: Push (tests/resolve-deps.sh)
+name: Push (tests/runtests.sh)
 
 on:
   push: {}
@@ -16,10 +16,14 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: ClojureScript (./tests/resolve-deps.sh ./resolve-deps)
+      - name: ClojureScript (./tests/runtests.sh ./resolve-deps)
         timeout-minutes: 1
-        run: time ./tests/resolve-deps.sh ./resolve-deps
+        run: |
+          time ./tests/runtests.sh ./resolve-deps dir
+          time ./tests/runtests.sh ./resolve-deps json
 
-      - name: Python (./tests/resolve-deps.sh ./resolve-deps.py)
+      - name: Python (./tests/runtests.sh ./resolve-deps.py)
         timeout-minutes: 1
-        run: time ./tests/resolve-deps.sh ./resolve-deps.py
+        run: |
+          time ./tests/runtests.sh ./resolve-deps.py dir
+          time ./tests/runtests.sh ./resolve-deps.py json
