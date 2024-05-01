@@ -17,7 +17,7 @@ def parse_args(argv):
     parser = ArgumentParser(description='resolve deps from dep dirs')
     parser.add_argument('dep_str', nargs='+',
                         help='one or more dep strings')
-    parser.add_argument('-p', '--path', help='Colon separated paths to dep dir or file (JSON)',
+    parser.add_argument('-p', '--path', help='One or more paths to dep dir or file (JSON). Colon or comma separated.',
                         default=os.environ.get('RESOLVE_DEPS_PATH', './'))
     parser.add_argument('--format', help='Output format (nodes, paths, json)',
                         default=os.environ.get('RESOLVE_DEPS_FORMAT', 'nodes'))
@@ -112,7 +112,7 @@ def main(argv):
     try:
         opts = parse_args(argv)
         start_dep_str = ",".join(opts.dep_str)
-        deps = load_deps_files(opts.path.split(":"))
+        deps = load_deps_files(re.split(r"[:,]", opts.path))
         dep_graph = {dep['node']: dep['deps'] for dep in deps.values()}
         dep_graph[':START'] = parse_dep_str(start_dep_str)
         res_deps = [d for d in resolve_dep_order(dep_graph, ':START')
