@@ -93,12 +93,30 @@ def min_alt_set_cover(graph, start):
 
 ###
 
+def list_add(obj, key, val):
+    if not obj.__contains__(key): obj[key] = []
+    obj[key].append(val)
+
 def resolve_dep_order(graph, start):
     """Takes a dependency graph and a starting node, find shortest
     dependency resolution, and returns it in the order that the deps
-    need to be applied (reversed topological sort order)."""
-    strong_graph = {k: [v for v in vs if not isinstance(v, dict)] for k,vs in graph.items()}
-    order_graph =  {k: [v["after"] if isinstance(v, dict) else v for v in vs] for k,vs in graph.items()}
+    need to be applied (reversed topological sort order).
+    The dependency graph is a map of node keys to a sequence of
+    dependencies. Each dependency can be one of the following:
+    - SCALAR:              the key requires this node
+    - SEQUENCE:            the key requires at least one node from the SEQUENCE
+    - {"or": SEQUENCE}:    same as plain SEQUENCE
+    - {"after": SEQUENCE}: key is after nodes in the SEQUENCE (if required)"""
+    strong_graph = {}
+    order_graph = {}
+    for k, v in [(k, v) for k, vs in graph.items() for v in vs]:
+        if isinstance(v, dict) and v.__contains__("after"):
+            list_add(order_graph, k, v["after"])
+        else:
+            rv = v.get("or", v.get("after")) if isinstance(v, dict) else v
+            list_add(strong_graph, k, rv)
+            list_add(order_graph, k, rv)
+
     # Find the shortest set cover of dependencies
     min_cover = set(min_alt_set_cover(strong_graph, start))
 

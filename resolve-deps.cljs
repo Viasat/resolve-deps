@@ -41,11 +41,11 @@ Options:
       []
       (for [dep (S/split s #"[, \n]+")]
         (cond
-          (re-seq #"[|]" dep) (S/split dep #"[|]")
+          (re-seq #"[|]" dep) {:or (S/split dep #"[|]")}
           (re-seq #"^\+" dep) {:after (S/replace dep #"^\+" "")}
           :else               dep)))))
 
-(defn load-deps
+(defn load-deps-files
   "Takes a paths sequence and finds all files matching
   path/*/deps-file. Returns a map of dep nodes to node data. Each node
   data map contains:
