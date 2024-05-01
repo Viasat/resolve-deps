@@ -6,6 +6,7 @@
 (ns resolve-deps
   (:require [promesa.core :as P]
             [clojure.string :as S]
+            [clojure.walk :refer [keywordize-keys]]
             [cljs.pprint :refer [pprint]]
             [viasat.deps :refer [resolve-dep-order]]
             ["neodoc" :as neodoc]
@@ -16,7 +17,7 @@
     resolve-deps [options] <dep-str>...
 
 Options:
-     -p PATH, --path=PATH    Colon separated dep dir paths
+     -p PATH, --path=PATH    Colon separated paths to dep dirs or files (JSON)
                              [default: ./] [env: RESOLVE_DEPS_PATH]
      --format=FORMAT         Output format (nodes, paths, json)
                              [default: nodes] [env: RESOLVE_DEPS_FORMAT]")
@@ -28,6 +29,23 @@ Options:
       js->clj))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn read-stream [stream]
+  (P/create (fn [resolve reject]
+              (P/let [chunks (atom [])]
+                (doto stream
+                  (.on "data" #(swap! chunks conj %))
+                  (.on "error" reject)
+                  (.on "end" #(resolve (apply str @chunks)))
+                  (.resume))))))
+
+(defn load-json
+  [file]
+  (P/->> (if (= "-" file)
+           (read-stream js/process.stdin)
+           (fs/readFile file "utf8"))
+         js/JSON.parse
+         js->clj))
 
 (defn parse-dep-str
   "Parse a dependency string of whitespace separated dep strings into
@@ -56,19 +74,35 @@ Options:
   [paths & [deps-file]]
   (P/let [deps-file (or deps-file "deps")
           deps (P/->>
-                 (for [dir paths]
-                   (P/->> (fs/readdir dir #js {:withFileTypes true})
-                          (filter #(.isDirectory %))
-                          (map #(P/let [node (.-name %)
-                                        path (path/join dir node)
-                                        df (path/join path deps-file)
-                                        ds (P/catch (fs/readFile df "utf8")
-                                             (fn [] ""))]
-                                  {:node    node
-                                   :path    path
-                                   :dep-str ds
-                                   :deps    (parse-dep-str ds)}))
-                          P/all))
+                 (for [path paths]
+                   (P/let [pfile? (or (= "-" path)
+                                      (P/-> (fs/stat path) .isFile))]
+                     (if pfile?
+                       (P/->> (load-json path)
+                                (map (fn [[k vs]]
+                                       (if (and (not (nil? vs))
+                                                (not (sequential? vs)))
+                                         (throw (ex-info
+                                                  (str "Dep value for " k
+                                                       " must be an array") {})))
+                                       {:node k
+                                        :path path
+                                        :deps (for [v vs]
+                                                (if (sequential? v)
+                                                  {:or v}
+                                                  (keywordize-keys v)))})))
+                       (P/->> (fs/readdir path #js {:withFileTypes true})
+                              (filter #(.isDirectory %))
+                              (map #(P/let [node (.-name %)
+                                            npath (path/join path node)
+                                            df (path/join npath deps-file)
+                                            ds (P/catch (fs/readFile df "utf8")
+                                                 (fn [] ""))]
+                                      {:node    node
+                                       :path    npath
+                                       :dep-str ds
+                                       :deps    (parse-dep-str ds)}))
+                              P/all))))
                  P/all
                  (mapcat identity))
           errs (for [[n cnt] (frequencies (map :node deps))
@@ -99,7 +133,7 @@ Options:
   (P/catch
     (P/let [opts (parse-args argv)
             start-dep-str (S/join "," (get opts "<dep-str>"))
-            deps (load-deps (S/split (get opts "--path") #":"))
+            deps (load-deps-files (S/split (get opts "--path") #":"))
             dep-graph (assoc (zipmap (keys deps) (map :deps (vals deps)))
                              :START (parse-dep-str start-dep-str))
             res-deps (->> (resolve-dep-order dep-graph :START)

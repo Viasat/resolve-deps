@@ -17,13 +17,21 @@ def parse_args(argv):
     parser = ArgumentParser(description='resolve deps from dep dirs')
     parser.add_argument('dep_str', nargs='+',
                         help='one or more dep strings')
-    parser.add_argument('-p', '--path', help='Colon separated dep dir paths',
+    parser.add_argument('-p', '--path', help='Colon separated paths to dep dir or file (JSON)',
                         default=os.environ.get('RESOLVE_DEPS_PATH', './'))
     parser.add_argument('--format', help='Output format (nodes, paths, json)',
                         default=os.environ.get('RESOLVE_DEPS_FORMAT', 'nodes'))
     return parser.parse_args(argv)
 
 #########################################
+
+def load_json(file):
+    data = ""
+    if file == "-":
+        data = sys.stdin.read()
+    else:
+        data = open(file).read()
+    return json.loads(data)
 
 def parse_one_dep(dep):
     if '|' in dep:      return {'or': dep.split('|')}
@@ -52,19 +60,29 @@ def load_deps_files(paths, deps_file="deps"):
       - dep-str: raw dependency string from path/*/deps-file (if it exists)
       - deps: parsed dependency string"""
     deps = []
-    for dir in paths:
-        for node in os.listdir(dir):
-            path = os.path.join(dir, node)
-            if not os.path.isdir(path): continue
-            df = os.path.join(path, deps_file)
-            dep_str = ""
-            if os.path.isfile(df):
-                with open(df, 'r') as file:
-                    dep_str = file.read()
-            deps.append({'node': node,
-                         'path': path,
-                         'dep-str': dep_str,
-                         'deps': parse_dep_str(dep_str)})
+    for path in paths:
+        if path == "-" or os.path.isfile(path):
+            for k, vs in load_json(path).items():
+                vs = [] if vs == None else vs
+                if not isinstance(vs, list):
+                    raise Exception("Dep value for " + k + " must be an array")
+                deps.append({'node': k,
+                             'path': path,
+                             "deps": [{"or": v} if isinstance(v, list) else v
+                                      for v in vs]})
+        else:
+            for node in os.listdir(path):
+                npath = os.path.join(path, node)
+                if not os.path.isdir(npath): continue
+                df = os.path.join(npath, deps_file)
+                dep_str = ""
+                if os.path.isfile(df):
+                    with open(df, 'r') as file:
+                        dep_str = file.read()
+                deps.append({'node':    node,
+                             'path':    npath,
+                             'dep-str': dep_str,
+                             'deps':    parse_dep_str(dep_str)})
     counts = Counter(dep['node'] for dep in deps)
     errs = []
     for node, count in counts.items():
@@ -94,7 +112,7 @@ def main(argv):
     try:
         opts = parse_args(argv)
         start_dep_str = ",".join(opts.dep_str)
-        deps = load_deps(opts.path.split(":"))
+        deps = load_deps_files(opts.path.split(":"))
         dep_graph = {dep['node']: dep['deps'] for dep in deps.values()}
         dep_graph[':START'] = parse_dep_str(start_dep_str)
         res_deps = [d for d in resolve_dep_order(dep_graph, ':START')
