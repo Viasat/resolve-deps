@@ -75,6 +75,8 @@
         smallest (apply min (keys counts))]
     (-> (get counts smallest) first next)))
 
+;;;
+
 (defn resolve-dep-order
   "Takes a dependency graph and a starting node, find shortest
   dependency resolution, and returns it in the order that the deps
