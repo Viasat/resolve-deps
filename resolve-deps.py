@@ -26,7 +26,7 @@ def parse_args(argv):
 #########################################
 
 def parse_one_dep(dep):
-    if '|' in dep:      return dep.split('|')
+    if '|' in dep:      return {'or': dep.split('|')}
     elif dep[0] == '+': return {'after': dep[1:]}
     else:               return dep
 
@@ -43,7 +43,7 @@ def parse_dep_str(raw_str):
     return [parse_one_dep(dep) for dep in re.split(r'[, \n]+', s) if dep]
 
 
-def load_deps(paths, deps_file="deps"):
+def load_deps_files(paths, deps_file="deps"):
     """Takes a paths list and finds all files matching
     path/*/deps-file. Returns a map of dep nodes to node data. Each
     node data map contains:

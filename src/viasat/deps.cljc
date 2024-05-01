@@ -45,7 +45,7 @@
   ([graph result visited pending]
    (loop [result result  visited visited  pending pending]
      (let [[node & pending] pending]
-       (if (coll? node)
+       (if (sequential? node)
          (mapcat
            (fn [node]
              (let [[result visited] (if (contains? visited node)
@@ -80,12 +80,21 @@
 (defn resolve-dep-order
   "Takes a dependency graph and a starting node, find shortest
   dependency resolution, and returns it in the order that the deps
-  need to be applied (reversed topological sort order)."
+  need to be applied (reversed topological sort order).
+  The dependency graph is a map of node keys to a sequence of
+  dependencies. Each dependency can be one of the following:
+  - SCALAR:            the key requires this node
+  - SEQUENCE:          the key requires at least one node from the SEQUENCE
+  - {:or SEQUENCE}:    same as plain SEQUENCE
+  - {:after SEQUENCE}: key is afer nodes in the SEQUENCE (if required)"
   [graph start]
-  (let [strong-graph (into {} (for [[k v] graph]
-                                [k (filter #(not (map? %)) v)]))
-        order-graph (into {} (for [[k v] graph]
-                               [k (map #(if (map? %) (:after %) %) v)]))
+  (let [regroup #(reduce (fn [g [k v]] (update g k (fnil conj []) v)) {} %)
+        strong-graph (regroup (for [[k v] (for [[k vs] graph v vs] [k v])
+                                    :when (or (not (map? v)) (contains? v :or))]
+                                [k (if (map? v) (:or v) v)]))
+        order-graph (regroup
+                      (for [[k v] (for [[k vs] graph v vs] [k v])]
+                        [k (if (map? v) (get v :or (get v :after)) v)]))
         min-cover (set (min-alt-set-cover strong-graph start))
         dep-graph (into (zipmap min-cover (repeat #{})) ;; nodes with no deps
                         (for [[k vs] order-graph
