@@ -77,6 +77,23 @@
 
 ;;;
 
+(defn full-to-alt-graph
+  [graph mode]
+  (let [regroup #(reduce (fn [g [k v]] (update g k (fnil conj []) v)) {} %)]
+    (regroup (for [[k v] (for [[k vs] graph v vs] [k v])
+                   :when (or (= :weak mode)
+                             (not (map? v))
+                             (contains? v :or))]
+               [k (if (map? v) (get v :or (get v :after)) v)]))))
+
+(defn alt-to-kahn-graph
+  [graph nodes]
+  (let [node-fn (set nodes)]
+    (into (zipmap node-fn (repeat #{})) ;; nodes with no deps
+          (for [[k vs] graph
+                :when (node-fn k)]
+            [k (set (keep node-fn (flatten vs)))]))))
+
 (defn resolve-dep-order
   "Takes a dependency graph and a starting node, find shortest
   dependency resolution, and returns it in the order that the deps
@@ -88,19 +105,11 @@
   - {:or SEQUENCE}:    same as plain SEQUENCE
   - {:after SEQUENCE}: key is afer nodes in the SEQUENCE (if required)"
   [graph start]
-  (let [regroup #(reduce (fn [g [k v]] (update g k (fnil conj []) v)) {} %)
-        strong-graph (regroup (for [[k v] (for [[k vs] graph v vs] [k v])
-                                    :when (or (not (map? v)) (contains? v :or))]
-                                [k (if (map? v) (:or v) v)]))
-        order-graph (regroup
-                      (for [[k v] (for [[k vs] graph v vs] [k v])]
-                        [k (if (map? v) (get v :or (get v :after)) v)]))
-        min-cover (set (min-alt-set-cover strong-graph start))
-        dep-graph (into (zipmap min-cover (repeat #{})) ;; nodes with no deps
-                        (for [[k vs] order-graph
-                              :when (min-cover k)]
-                          [k (set (keep min-cover (flatten vs)))]))
-        sorted (kahn-sort dep-graph)]
+  (let [strong-graph (full-to-alt-graph graph :strong)
+        order-graph  (full-to-alt-graph graph :weak)
+        min-cover (min-alt-set-cover strong-graph start)
+        kahn-graph (alt-to-kahn-graph order-graph min-cover)
+        sorted (kahn-sort kahn-graph)]
     (when (empty? sorted) (throw (ex-info "Graph contains a cycle" {})))
     (reverse sorted)))
 

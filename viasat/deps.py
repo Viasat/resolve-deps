@@ -44,7 +44,7 @@ def kahn_sort(g):
 ############################################################
 ## Graph dep resolution using modified set cover algorithm
 
-def alt_set_covers(graph, result=None, visited=None, pending=None):
+def alt_set_covers(graph, pending=None, result=None, visited=None):
     """Return all set covers of a graph containing alternation nodes.
     Alternation nodes are expressed as a list of alternate nodes. Each
     alternative dependency node in the graph effectively duplicates
@@ -71,13 +71,13 @@ def alt_set_covers(graph, result=None, visited=None, pending=None):
                 new_result = result + [alt_node]
                 new_visited = visited | {alt_node}
             new_pending = [alt_node] + pending_rest
-            covers.extend(alt_set_covers(graph, new_result, new_visited, new_pending))
+            covers.extend(alt_set_covers(graph, new_pending, new_result, new_visited))
         return covers
     else:
         new_result = result + [node] if node not in visited else result
         new_visited = visited | {node}
         children = [n for n in graph.get(node, []) if isinstance(n, list) or n not in new_visited]
-        return alt_set_covers(graph, new_result, new_visited, pending_rest + children)
+        return alt_set_covers(graph, pending_rest + children, new_result, new_visited)
 
 def min_alt_set_cover(graph, start):
     """Call alt_set_covers and then return shortest path (if a tie
@@ -97,6 +97,28 @@ def list_add(obj, key, val):
     if not obj.__contains__(key): obj[key] = []
     obj[key].append(val)
 
+def full_to_alt_graph(graph, mode):
+    strong_graph = {}
+    order_graph = {}
+    for k, v in [(k, v) for k, vs in graph.items() for v in vs]:
+        if isinstance(v, dict) and v.__contains__("after"):
+            list_add(order_graph, k, v["after"])
+        else:
+            rv = v.get("or", v.get("after")) if isinstance(v, dict) else v
+            list_add(strong_graph, k, rv)
+            list_add(order_graph, k, rv)
+    return order_graph if mode == "weak" else strong_graph
+
+def alt_to_kahn_graph(graph, nodes):
+    node_set = set(nodes)
+    res = {dep: set() for dep in node_set}  # Nodes with no dependencies
+    for k, vs in graph.items():
+        if k in node_set:
+            # Flatten lists and keep only those in node_set
+            res[k] = set(v for v in vs for v in (v if isinstance(v, list) else [v])
+                         if v in node_set)
+    return res
+
 def resolve_dep_order(graph, start):
     """Takes a dependency graph and a starting node, find shortest
     dependency resolution, and returns it in the order that the deps
@@ -107,28 +129,17 @@ def resolve_dep_order(graph, start):
     - SEQUENCE:            the key requires at least one node from the SEQUENCE
     - {"or": SEQUENCE}:    same as plain SEQUENCE
     - {"after": SEQUENCE}: key is after nodes in the SEQUENCE (if required)"""
-    strong_graph = {}
-    order_graph = {}
-    for k, v in [(k, v) for k, vs in graph.items() for v in vs]:
-        if isinstance(v, dict) and v.__contains__("after"):
-            list_add(order_graph, k, v["after"])
-        else:
-            rv = v.get("or", v.get("after")) if isinstance(v, dict) else v
-            list_add(strong_graph, k, rv)
-            list_add(order_graph, k, rv)
+    strong_graph = full_to_alt_graph(graph, "strong")
+    order_graph  = full_to_alt_graph(graph, "weak")
 
     # Find the shortest set cover of dependencies
-    min_cover = set(min_alt_set_cover(strong_graph, start))
+    min_cover = min_alt_set_cover(strong_graph, start)
 
     # Construct a new graph where each node points to its dependencies
-    dep_graph = {dep: set() for dep in min_cover}  # Nodes with no dependencies
-    for k, vs in order_graph.items():
-        if k in min_cover:
-            # Flatten lists and keep only those in min_cover
-            dep_graph[k] = set(v for v in vs for v in (v if isinstance(v, list) else [v]) if v in min_cover)
+    kahn_graph = alt_to_kahn_graph(order_graph, min_cover)
 
     # Perform topological sort on the new graph
-    sorted_deps = kahn_sort(dep_graph)
+    sorted_deps = kahn_sort(kahn_graph)
 
     # Check for cycles
     if sorted_deps is None:
