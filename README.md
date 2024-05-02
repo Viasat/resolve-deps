@@ -320,6 +320,140 @@ $ ./resolve-deps --path=tests/basic --format=json f | jq '.'
 ```
 
 
+## Library Functions
+
+The following shows how to use `viasat.deps` library functions. Unless
+there are important differences, most of these example are shown in
+Clojure. There are equivalent python functions with underscores in the
+names instead of dashses.
+
+Require/import the resolve-deps library, the pprint function,  and
+define an example depdency graph:
+
+```clojure Clojure
+(require '[viasat.deps]
+         '[clojure.pprint :refer [pprint]])
+
+(def g {:a [:b :c]
+        :b [:c {:or [:x :y]}]
+        :c [:d]
+        :d [{:after :e} :f]
+        :e []
+        :f []
+        :x []
+        :y [{:or [:z :e]}]
+        :z []})
+```
+
+```python Python
+import viasat.deps
+from pprint import pprint
+
+g = {
+    "a": ["b", "c"],
+    "b": ["c", {"or": ["x", "y"]}],
+    "c": ["d"],
+    "d": [{"after": "e"}, "f"],
+    "e": [],
+    "f": [],
+    "x": [],
+    "y": [{"or": ["z", "e"]}],
+    "z": []
+}
+```
+
+### resolve-dep-order: full dependency and order resolution
+
+Do a full dependency resolution of graph `g` start from `:a`:
+
+```clojure
+user=> (viasat.deps/resolve-dep-order g :a)
+(:f :d :x :c :b :a)
+```
+
+The starting point can also be specified as a sequence of starting
+nodes:
+
+```clojure
+user=> (viasat.deps/resolve-dep-order g [:a :y])
+(:f :z :d :y :c :b :a)
+```
+
+### alt-set-covers: all resolutions
+
+The following examples use a simpler form of the dependency graph
+where there are no weak nodes and alternates are specified as a simple
+sequence (no maps). You can convert the full graph into the simpler
+form using `full-to-alt-graph`. The second argument specifies whether to
+keep the weak/order dependencies and convert them into full
+dependencies (:weak) or to omit them entirely (:strong).
+
+```clojure
+user=> (def g1 (viasat.deps/full-to-alt-graph g :strong))
+user=> (def g2 (viasat.deps/full-to-alt-graph g :weak))
+```
+
+Show the possible resolutions for `:a` for each normalized graph:
+
+```clojure
+user=> (viasat.deps/alt-set-covers g1 :a)
+([:a :b :c :x :d :f] [:a :b :c :y :d :f :z] [:a :b :c :y :d :f :e])
+user=> (viasat.deps/alt-set-covers g2 :a)
+([:a :b :c :x :d :e :f] [:a :b :c :y :d :e :f :z] [:a :b :c :y :d :e :f])
+```
+
+Note: this function returns resolutions that are in arbitrary order.
+
+### min-alt-set-cover: shortest resolution
+
+The `min-alt-set-cover` is similar to `alt-set-covers` but it will
+return only the shortest resolution (count of nodes in the
+resolution). If there is a tie it will arbitrarily pick one of the
+shortest ones:
+
+```clojure
+user=> (viasat.deps/min-alt-set-cover g1 :a)
+(:a :b :c :x :d :f)
+user=> (viasat.deps/min-alt-set-cover g2 :a)
+(:a :b :c :x :d :e :f)
+```
+
+### kahn-sort: sort a dependency graph
+
+The `kahn-sort` function takes a dependency graph and returns
+a sequence in dependency order using Kahn's algorithm. It takes an
+even simpler dependency graph with no alternates and the dependency
+values are sets.
+
+```clojure
+user=> (viasat.deps/kahn-sort {:a [:b :c] :c [:d :e] :b [:f :g]})
+[:a :b :f :g :c :d :e]
+```
+
+To sort a set-cover result, you need to convert full dep graph to the
+simpler form and then prune it to only contain the set-cover nodes.
+The `alt-to-kahn-graph` will do this conversion and pruning:
+
+```clojure
+user=> (def nodes (viasat.deps/min-alt-set-cover g1 :a))
+user=> (def kahn-dep-graph (viasat.deps/alt-to-kahn-graph g1 nodes))
+user=> kahn-dep-graph
+{:a #{:b :c}, :b #{:c :x}, :c #{:d}, :x #{}, :d #{:f}, :f #{}}
+```
+
+This can now be sorted with `kahn-sort` to return a valid sorting of
+the nodes (in latest to earliest order):
+
+```clojure
+user=> (viasat.deps/kahn-sort kahn-dep-graph)
+[:a :b :c :x :d :f]
+```
+
+If you reverse the result you will have the same result as you would
+get from `resolve-dep-order` (because it implements the steps
+dewscribed above).
+
+
 ## Run Tests
 
 The `./tests/runtests.sh` script will run tests against the
